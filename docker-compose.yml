@@ -1,0 +1,81 @@
+---
+version: "2"
+
+services:
+  web:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ENABLE_IPV6: 'true'
+      DHPARAM_GENERATION: 'false'
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/vhost:/etc/nginx/vhost.d
+      - ./nginx/html:/usr/share/nginx/html
+    networks:
+      - app.io
+
+  acme:
+    image: nginxproxy/acme-companion:latest
+    container_name: acme-companion
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme:/etc/acme.sh
+      - ./pkgs/acme_profile:/app/letsencrypt_user_data:ro
+    volumes_from:
+      - web
+    networks:
+      - app.io
+
+  nextcloud:
+    image: nextcloud:20.0.14
+    container_name: nextcloud
+    restart: always
+    environment:
+      MYSQL_HOST: mariadb_nc
+      MYSQL_DATABASE: ${YOUR_MYSQL_DATABASE}
+      MYSQL_USER: ${YOUR_MYSQL_USER}
+      MYSQL_PASSWORD: ${YOUR_MYSQL_PASSWORD}
+      REDIS_HOST: redis
+      NEXTCLOUD_TRUSTED_DOMAINS: ${YOUR_DOMAIN}    
+      VIRTUAL_HOST: ${VIRTUAL_HOST}
+      OVERWRITEPROTOCOL: https
+    volumes:
+      - ./nextcloud:/var/www/html
+    networks:
+      - app.io
+
+    redis:
+      image: redis:latest
+      container_name: redis
+      restart: always
+      networks:
+        - db.io
+
+    mariadb_nc:
+      image: mariadb:latest
+      container_name: mariadb_nc
+      command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --innodb-file-per-table=1 --skip-innodb-read-only-compressed
+      restart: always
+      environment:
+        MYSQL_ROOT_PASSWORD: ${YOUR_MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${YOUR_MYSQL_DATABASE}
+        MYSQL_USER: ${YOUR_MYSQL_USER}
+        MYSQL_PASSWORD: ${YOUR_MYSQL_PASSWORD}
+      volumes:
+        - db:/var/lib/mysql
+      networks:
+        - db.io
+
+networks:
+  app.io:
+    driver: bridge
+  db.io:
+    driver: bridge
