@@ -11,6 +11,7 @@ services:
       - "443:443"
     environment:
       ENABLE_IPV6: 'true'
+      #DHPARAM_GENERATION: 'false'
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./nginx/certs:/etc/nginx/certs:ro
@@ -32,11 +33,33 @@ services:
       - ./nginx/conf:/etc/nginx/conf.d
       - ./nginx/vhost:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
-      - ./pkgs/acme_profile:/app/letsencrypt_user_data:ro
+      - ./pkgs/acme_profile.sh:/app/letsencrypt_user_data:ro
     environment:
       NGINX_PROXY_CONTAINER: nginx-proxy
     networks:
       - app.io
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    networks:
+      - db.io
+
+  mariadb_nc:
+    image: mariadb:latest
+    container_name: mariadb_nc
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --innodb-file-per-table=1 --skip-innodb-read-only-compressed
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${YOUR_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${YOUR_MYSQL_DATABASE}
+      MYSQL_USER: ${YOUR_MYSQL_USER}
+      MYSQL_PASSWORD: ${YOUR_MYSQL_PASSWORD}
+    volumes:
+      - ./mariadb:/var/lib/mysql
+    networks:
+      - db.io
 
   nextcloud:
     image: nextcloud:20.0.14
@@ -57,27 +80,7 @@ services:
       - app.io
       - db.io
 
-    redis:
-      image: redis:latest
-      container_name: redis
-      restart: always
-      networks:
-        - db.io
 
-    mariadb_nc:
-      image: mariadb:latest
-      container_name: mariadb_nc
-      command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --innodb-file-per-table=1 --skip-innodb-read-only-compressed
-      restart: always
-      environment:
-        MYSQL_ROOT_PASSWORD: ${YOUR_MYSQL_ROOT_PASSWORD}
-        MYSQL_DATABASE: ${YOUR_MYSQL_DATABASE}
-        MYSQL_USER: ${YOUR_MYSQL_USER}
-        MYSQL_PASSWORD: ${YOUR_MYSQL_PASSWORD}
-      volumes:
-        - db:/var/lib/mysql
-      networks:
-        - db.io
 
 networks:
   app.io:

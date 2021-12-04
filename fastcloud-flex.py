@@ -1,6 +1,8 @@
 import subprocess as sp
 import re
 import time
+import random
+import string
 
 
 def getDNS(domain):
@@ -183,14 +185,18 @@ def modifyEnvFile(data):
 
 def modifyACMEFile(domain):
     print('正在配置acme-profile....')
-    whatever = 15165
-    uniqueid = 'app'+str(whatever)
+    uniqueid = ''.join(random.sample(string.ascii_letters + string.digits, 5))
+    #uniqueid = 'app'+str(random.randint(10000,99999))
     line1 = "LETSENCRYPT_STANDALONE_CERTS=('"+uniqueid+"')"
     line2 = "\nLETSENCRYPT_"+uniqueid+"_HOST=('"+domain+"')"
     content = line1+line2
-    with open('./pkgs/acme_profile.sh', 'w+') as f:
-        f.write(content)
-    pass
+    try:
+        with open('./pkgs/acme_profile.sh', 'w+') as f:
+            f.write(content)
+    except:
+        print('ACME配置失败...')
+        return False
+    return True
 
 
 def modifyNginxConfig(domain, vhost, upload_size):
@@ -202,12 +208,12 @@ def modifyNginxConfig(domain, vhost, upload_size):
         except:
             print('[Error]Nginx模版文件不存在')
             break
-        pat1 = r'${YOUR_DOMAIN}'
-        pat2 = r'${VIRTUAL_HOST}'
-        pat3 = r'${UPLOAD_SIZE}'
-        res = re.sub(pat1, content, domain)
-        res = re.sub(pat2, res, vhost)
-        res = re.sub(pat3, res, upload_size)
+        pat1 = r'\$\{YOUR_DOMAIN\}'
+        pat2 = r'\$\{VIRTUAL_HOST\}'
+        pat3 = r'\$\{UPLOAD_SIZE\}'
+        res = re.sub(pat1, domain,content)
+        res = re.sub(pat2, vhost,res)
+        res = re.sub(pat3, upload_size,res)
         try:
             with open('./nginx/conf/proxy.conf', 'w+') as f:
                 f.write(res)
@@ -269,13 +275,13 @@ if __name__ == "__main__":
             res = installDocker()
             if res != True:
                 break
-        
+
         res = checkDodckerCompose()
         if res == 'None':
             res = installDockerCompose()
             if res != True:
                 break
-        
+
         # 设置配置并开始部署容器
         res = modifyACMEFile(configs['YOUR_DOMAIN'])
         if res != True:
@@ -283,32 +289,31 @@ if __name__ == "__main__":
         res = modifyEnvFile(configs)
         if res != True:
             break
-        
-        print('测试中断点，是否继续？')
-        while True:
-            answ=input('输入[y/n]:') or 'n'
-            if answ and re.match(r'^[y|Y]+',answ):
-                print('继续')
-                break
-            elif answ and re.match(r'^[n|N]+',answ):
-                exit()
-            else:
-                print('无效输入，请重新输入')
-
         res = deployImages()
         if res != True:
             break
-        
+
         # 给时间让容器启动和生效
         print('等待acme生成ssl证书...')
-        waittime = 16
+        waittime = 30
         for i in range(waittime)[-1::-1]:
             print('等待剩余 '+str(i)+'秒...', end='\r')
             time.sleep(1)
 
+        # print('测试中断点，是否继续？')
+        # while True:
+        #     answ = input('输入[y/n]:') or 'n'
+        #     if answ and re.match(r'^[y|Y]+', answ):
+        #         print('继续')
+        #         break
+        #     elif answ and re.match(r'^[n|N]+', answ):
+        #         exit()
+        #     else:
+        #         print('无效输入，请重新输入')
+
         # 修改配置
         res = modifyNginxConfig(
-            configs['YOURDOMAIN'], configs['VIRTUAL_HOST'], configs['UPLOAD_SIZE'])
+            configs['YOUR_DOMAIN'], configs['VIRTUAL_HOST'], configs['UPLOAD_SIZE'])
         if res != True:
             break
 
