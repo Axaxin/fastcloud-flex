@@ -220,7 +220,7 @@ def modifyNginxConfig(domain, vhost, upload_size):
 
 
 def reloadNginx():
-    stmt = 'docker exec nginx nginx -s reload'
+    stmt = 'docker exec nginx-proxy nginx -s reload'
     ret, out = sp.getstatusoutput(stmt)
     pat = r'[0-9a-zA-Z\s\[\]\:\#\s\/]*signal\sprocess\sstarted'
     checkOutput = re.match(pat, out)
@@ -283,6 +283,18 @@ if __name__ == "__main__":
         res = modifyEnvFile(configs)
         if res != True:
             break
+        
+        print('测试中断点，是否继续？')
+        while True:
+            answ=input('输入[y/n]:') or 'n'
+            if answ and re.match(r'^[y|Y]+',answ):
+                print('继续')
+                break
+            elif answ and re.match(r'^[n|N]+',answ):
+                exit()
+            else:
+                print('无效输入，请重新输入')
+
         res = deployImages()
         if res != True:
             break
