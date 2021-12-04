@@ -265,13 +265,13 @@ if __name__ == "__main__":
     while toInstall == True:
         # 检查和安装Docker相关
         res = checkDocker()
-        if res != True:
+        if res == 'None':
             res = installDocker()
             if res != True:
                 break
         
         res = checkDodckerCompose()
-        if res != True:
+        if res == 'None':
             res = installDockerCompose()
             if res != True:
                 break
