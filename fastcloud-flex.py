@@ -3,6 +3,7 @@ import re
 import time
 import random
 import string
+import os
 
 
 def getDNS(domain):
@@ -165,14 +166,24 @@ def verifyConfig(data):
 
 def modifyEnvFile(data):
     print('正在设置docker-compose变量...')
-    line1 = 'YOUR_DOMAIN='+data['YOUR_DOMAIN']
-    line2 = '\nVIRTUAL_HOST='+data['VIRTUAL_HOST']
-    line3 = '\nYOUR_MYSQL_DATABASE='+data['YOUR_MYSQL_DATABASE']
-    line4 = '\nYOUR_MYSQL_USER='+data['YOUR_MYSQL_USER']
-    line5 = '\nYOUR_MYSQL_PASSWORD='+data['YOUR_MYSQL_PASSWORD']
-    line6 = '\nYOUR_MYSQL_ROOT_PASSWORD='+data['YOUR_MYSQL_ROOT_PASSWORD']
+    lines = [
+        'YOUR_DOMAIN='+data['YOUR_DOMAIN'],
+        'VIRTUAL_HOST='+data['VIRTUAL_HOST'],
+        'YOUR_MYSQL_DATABASE='+data['YOUR_MYSQL_DATABASE'],
+        'YOUR_MYSQL_USER='+data['YOUR_MYSQL_USER'],
+        'YOUR_MYSQL_PASSWORD='+data['YOUR_MYSQL_PASSWORD'],
+        'YOUR_MYSQL_ROOT_PASSWORD='+data['YOUR_MYSQL_ROOT_PASSWORD']
+    ]
 
-    content = line1+line2+line3+line4+line5+line6
+    content = '\n'.join(lines)
+    # line1 = 'YOUR_DOMAIN='+data['YOUR_DOMAIN']
+    # line2 = '\nVIRTUAL_HOST='+data['VIRTUAL_HOST']
+    # line3 = '\nYOUR_MYSQL_DATABASE='+data['YOUR_MYSQL_DATABASE']
+    # line4 = '\nYOUR_MYSQL_USER='+data['YOUR_MYSQL_USER']
+    # line5 = '\nYOUR_MYSQL_PASSWORD='+data['YOUR_MYSQL_PASSWORD']
+    # line6 = '\nYOUR_MYSQL_ROOT_PASSWORD='+data['YOUR_MYSQL_ROOT_PASSWORD']
+
+    # content = line1+line2+line3+line4+line5+line6
     try:
         with open('./.env.fastcloud', 'w+') as f:
             f.write(content)
@@ -211,9 +222,9 @@ def modifyNginxConfig(domain, vhost, upload_size):
         pat1 = r'\$\{YOUR_DOMAIN\}'
         pat2 = r'\$\{VIRTUAL_HOST\}'
         pat3 = r'\$\{UPLOAD_SIZE\}'
-        res = re.sub(pat1, domain,content)
-        res = re.sub(pat2, vhost,res)
-        res = re.sub(pat3, upload_size,res)
+        res = re.sub(pat1, domain, content)
+        res = re.sub(pat2, vhost, res)
+        res = re.sub(pat3, upload_size, res)
         try:
             with open('./nginx/conf/proxy.conf', 'w+') as f:
                 f.write(res)
@@ -222,6 +233,18 @@ def modifyNginxConfig(domain, vhost, upload_size):
             break
         print('Nginx配置已经添加...')
         return True
+    return
+
+
+def attemptCheckSSl(domain, attempt=3, interval=15):
+    files = os.listdir('./nginx/certs')
+    pat = re.compile(domain+'\.[crt|cer|pem|key]')
+    for i in range(attempt):
+        print('正在检查ssl证书,尝试%d次' % (i+1))
+        for item in files:
+            if re.match(pat, item):
+                return True
+        time.sleep(interval)
     return
 
 
@@ -312,6 +335,9 @@ if __name__ == "__main__":
         #         print('无效输入，请重新输入')
 
         # 修改配置
+        res = attemptCheckSSl(configs['YOUR_DOMAIN'])
+        if not res:
+            break
         res = modifyNginxConfig(
             configs['YOUR_DOMAIN'], configs['VIRTUAL_HOST'], configs['UPLOAD_SIZE'])
         if res != True:
